@@ -12,14 +12,14 @@ include("$(@__DIR__)/$relPath/utils/utils_IO.jl")
 # inputs
 asic = LegendData(:ppc01)
 period = DataPeriod(1)
-run = DataRun(23)
+run = DataRun(33)
 channel = ChannelId(1)
 category = :bch
 
 # input for function: csv folder, heading 
 csv_folder = asic.tier[DataTier(:raw_csv), category , period, run]
 timestep = 0.01u"µs"
-chmode = :pulser
+chmode = :single# :pulser
 skutek_csv_to_lh5(asic, period, run, category, channel, csv_folder; timestep = timestep, chmode = chmode)
 
 # test resting this data 

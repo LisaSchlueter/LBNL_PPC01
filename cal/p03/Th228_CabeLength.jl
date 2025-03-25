@@ -14,23 +14,27 @@ runs = 50:52
 
 # load pars 
 cable_length = sort([185.0, 405.0, 645.0 ]; rev = false)
-peak = :Tl208FEP
-fwhm_peak = ustrip.([asic.par.rpars.ecal[period, DataRun(r), channel].e_trap.fit[peak].fwhm for r in runs])
-fwhm_qbb = ustrip.([asic.par.rpars.ecal[period, DataRun(r), channel].e_trap.fwhm.qbb for r in runs])
 
-# plot 
+filekey = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, DataRun(runs[1])])[1]
+gamma_names = Symbol.(dataprod_config(asic).energy(filekey).default.th228_names)
+gamma_lines = round.(Int, ustrip.(dataprod_config(asic).energy(filekey).default.th228_lines))
+
+peak = :Tl208FEP
+fwhm = Vector{Vector{Measurements.Measurement{Float64}}}(undef, length(gamma_lines))
+for (p, peak) in enumerate(gamma_names)
+    fwhm[p] = ustrip.([asic.par[category].rpars.ecal[period, DataRun(r), channel].e_trap.fit[peak].fwhm for r in runs])
+end
+
+# plot 1 peak (FEP)
+i = 7
 fig = Figure()
 ax = Axis(fig[1,1], xticks = cable_length,  
                     xlabel = "Cable length (cm)", ylabel = "FWHM (keV)")
-hlines!(ax, [mvalue(mean(fwhm_peak))], linestyle = :dash, alpha = 0.5)
-errorbars!(ax, cable_length, mvalue.(fwhm_peak), muncert.(fwhm_peak), label = "Tl208FEP (2.614 MeV)", whiskerwidth = 0) 
-scatter!(ax, cable_length, mvalue.(fwhm_peak), label = "Tl208FEP (2.614 MeV)", markersize = 10) 
-hlines!(ax, [mvalue(mean(fwhm_qbb))], linestyle = :dash, alpha = 0.5)
-errorbars!(ax, cable_length, ustrip.(mvalue.(fwhm_qbb)), muncert.(fwhm_qbb), label = "Qbb (2.039 MeV)", whiskerwidth = 0) 
-scatter!(ax, cable_length, mvalue.(fwhm_qbb), label = "Qbb (2.039 MeV)", markersize = 10) 
+errorbars!(ax, cable_length, mvalue.(fwhm[i]), muncert.(fwhm[i]), label = "Data: $(gamma_names[i]) ($(gamma_lines[i]) keV)", whiskerwidth = 0) 
+scatter!(ax, cable_length, mvalue.(fwhm[i]), label = "Data: $(gamma_names[i]) ($(gamma_lines[i]) keV)", markersize = 10) 
+hlines!(ax, [mvalue(mean(fwhm[i]))], linestyle = :dash, alpha = 1.0, label = "mean")
 axislegend(merge = true, orientation = :horizontal, position = :lt)
-
-Makie.ylims!(ax, 3.4 , 4.6 )
+Makie.ylims!(ax, 0.99 * (mvalue(minimum(fwhm[i]))  - muncert(minimum(fwhm[i]))) ,  1.01 * (mvalue(maximum(fwhm[i]))  + muncert(maximum(fwhm[i]))) )
 fig
-save("$(@__DIR__)/plots/Th228_resolution_vs_cablelength.png", fig)
+save("$(@__DIR__)/plots/Th228_resolution_vs_cablelength_$(gamma_names[i]).png", fig)
 

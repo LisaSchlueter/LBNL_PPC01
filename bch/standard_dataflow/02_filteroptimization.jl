@@ -29,8 +29,6 @@ include("$(@__DIR__)/$relPath/processing_funcs/process_filteropt.jl")
 asic = LegendData(:ppc01)
 period = DataPeriod(1)
 run = DataRun(1)
-for r in 13:22
-    run = DataRun(r)
 channel = ChannelId(1)
 category = DataCategory(:bch)
 filter_types = [:trap]
@@ -45,6 +43,7 @@ peak =  Symbol(pz_config.peak)
 
 process_filteropt(asic, period, run, category, channel, dsp_config, τ_pz, peak; 
                 reprocess = true, rt_opt_mode = :bl_noise, filter_types = filter_types)
+
 # read filter optimization pars
-fltopt_pars = asic.par.rpars.fltopt[period,run,channel]
-end 
+fltopt_pars = asic.par[category].rpars.fltopt[period,run,channel]
+# end 

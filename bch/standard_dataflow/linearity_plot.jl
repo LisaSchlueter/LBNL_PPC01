@@ -23,7 +23,7 @@ channel = ChannelId(1)
 category = DataCategory(:bch)
 det = _channel2detector(asic, channel)
 # runs = vcat(1:4, 7:10)
-runs = vcat(15:22)
+runs = 23:32
 
 # load peakfit results 
 µ_fit = [asic.par[category].rpars.ecal[period, DataRun(run), channel].µ for run in runs]
@@ -48,7 +48,7 @@ begin
     show_residuals = true
     show_gof = false 
     units = :MeV
-    res_mode = :abs#:percent
+    res_mode = :percent
     xlims = (nothing, nothing)
     ylims_up = (nothing, nothing)
    

@@ -33,7 +33,7 @@ include("$(@__DIR__)/$relPath/processing_funcs/process_energy_calibration.jl")
 reprocess = true 
 asic = LegendData(:ppc01)
 period = DataPeriod(3)
-run = DataRun(52)
+run = DataRun(50)
 channel = ChannelId(1)
 category = :cal 
 e_types = [:e_trap]#, :e_trap_ctc]#, :e_cusp]
@@ -48,7 +48,9 @@ process_energy_calibration(asic, period, run, category, channel, ecal_config; re
 # read calibration parameters
 # asic.par[category].rpars.ecal[period, run, channel].e_trap
 
-for k in Symbol.(keys(asic.par[category].rpars.ecal[period, run, channel].e_trap.fit))
-    @info "$k -> fwhm =  $(asic.par[category].rpars.ecal[period, run, channel].e_trap.fit[k].fwhm)"
+gammas_sort = [ :Tl208FEP,  :Tl208SEP, :Bi212FEP, :Tl208DEP, :Tl208b, :Bi212a, :Tl208a]
+for k in gammas_sort
+    e = round(Int, ustrip(mvalue(asic.par[category].rpars.ecal[period, run, channel].e_trap.fit[k].µ)))
+    println("$k ($e keV) \t fwhm = $(asic.par[category].rpars.ecal[period, run, channel].e_trap.fit[k].fwhm)")
 end
 
