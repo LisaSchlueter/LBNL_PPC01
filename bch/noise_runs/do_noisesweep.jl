@@ -15,7 +15,7 @@ using TypedTables
 using Makie, LegendMakie, CairoMakie
 using Measures
 using Optim
-using BSplineKit
+using BSplineKit, Interpolations
 using Printf
 
 # include relevant functions 
@@ -24,31 +24,18 @@ include("$(@__DIR__)/$relPath/utils/utils_aux.jl")
 include("$(@__DIR__)/$relPath/src/filteropt_rt_optimization_blnoise.jl")
 include("$(@__DIR__)/$relPath/utils/utils_physics.jl")
 
-# daq settings
-set = (
-    csa_gain = 1.0,
-    csa_F = 500*1e-15,
-    dynamicrange_V = 2.0,
-    bits = 14
-)
-
 # init data management 
 asic = LegendData(:ppc01)
 period = DataPeriod(1)
-run = DataRun(33)
+run = DataRun(12)
 channel = ChannelId(1)
 category = DataCategory(:bch)
-
-# settnigs 
-filter_type = :trap
-waveform_type = :waveform_ch2
-n_evts = 5000
-reprocess = false 
+det_ged = _channel2detector(asic, channel)
 
 # load configs and modify if needed 
-filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run])[1:4]
+filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run])#[1:4]
 dsp_config = DSPConfig(dataprod_config(asic).dsp(filekeys[1]).default)
-rt = (0.9:0.5:15.0).*u"µs"
+rt = (0.5:0.5:25.0).*u"µs"
 #  _, def_ft = get_fltpars(PropDict(), filter_type, dsp_config)
 def_ft = 0.1u"µs"
 pd_default = dataprod_config(asic).dsp(filekeys[1]).default
@@ -58,6 +45,24 @@ dsp_config_mod = DSPConfig(merge(pd_default, PropDict(
                     "flt_length_cusp" =>  1.0u"µs",
                     "flt_length_cusp" =>  1.0u"µs")))
 
+# settnigs 
+filter_type = :trap
+# for waveform_type in [:waveform, :waveform_ch1, :waveform_ch2]
+waveform_type = :waveform
+n_evts = 5000
+reprocess = true
+
+# daq settings
+set = (
+    csa_gain = if waveform_type == :waveform 
+        2.0
+    else
+        1.0
+    end,
+    csa_F = 500*1e-15,
+    dynamicrange_V = 2.0,
+    bits = 14
+)
 
 # load waveforms and do noise sweep 
 pars_pd = if isfile(joinpath(data_path(asic.par[category].rpars.noise[period]), "$run.json" )) && !reprocess
@@ -80,11 +85,10 @@ else
     writelprops(asic.par[category].rpars.noise[period], run, PropDict("$channel" => pars_pd))
 end 
 
-   
-
+# end 
 # read result and plot 
 result_rt = asic.par[category].rpars.noise[period, run, channel][waveform_type]
-f_interp = let enc = result_rt.enc[findall(isfinite.(result_rt.enc))], rt = ustrip.(collect(result_rt.enc_grid_rt))[findall(isfinite.(result_rt.enc))]
+f_interp = let enc = result_rt.noise, rt = ustrip.(result_rt.rt)
     if length(enc) >= 4
         f_interp = BSplineKit.interpolate(rt, enc, BSplineOrder(4))
     else
@@ -94,7 +98,7 @@ end
 result_rt[:f_interp] = f_interp
 fig = plot_noise_sweep(result_rt; yunit = :ADC)
 fig = plot_noise_sweep(result_rt; yunit = :keV)
-
+fig = plot_noise_sweep(result_rt; yunit = :e)
 
 function plot_noise_sweep(report; yunit = :ADC)
     y_scale = if yunit == :ADC
@@ -106,31 +110,28 @@ function plot_noise_sweep(report; yunit = :ADC)
     else
         error("Invalid yunit")
     end 
-
-    x = collect(report.enc_grid_rt)
+    x = report.rt
     x_unit = unit(x[1])
     x = ustrip.(x)
-    y = report.enc .* y_scale
+    y = report.noise .* y_scale
     x_inter = range(x[1], stop = maximum(x[findall(isfinite.(y))]), step = 0.05); 
     y_inter = report.f_interp.(x_inter) .* y_scale
  
-     # plot  
-     p = Figure()
-     ax = Axis(p[1, 1], 
-         xlabel = "Rise time ($x_unit)", ylabel = "Noise ($yunit)",
-         limits = ((extrema(x)[1] - 0.2, extrema(x)[2] + 0.2), (nothing, nothing)),
-         title = "Noise sweep ($filter_type), $period-$run-$channel" * @sprintf("fixed ft = %.2f %s, optimal rt = %.1f %s", ustrip(def_ft), unit(def_ft), ustrip(report.rt), unit(report.rt)), )
-     lines!(ax, x_inter, y_inter, color = :deepskyblue2, linewidth = 3, linestyle = :solid, label = "Interpolation")
-     Makie.scatter!(ax, x, y,  color = :black, label = "Data")
-     axislegend()
-    #  pname = plt_folder * split(LegendDataManagement.LDMUtils.get_pltfilename(data, filekeys[1], channel, Symbol("noise_sweep_$(filter_type)_$(waveform_type)")),"/")[end]
-    #  d = LegendDataManagement.LDMUtils.get_pltfolder(data, filekeys[1], Symbol("noise_sweep_$(filter_type)_$(waveform_type)"))
-    #  ifelse(isempty(readdir(d)), rm(d), NamedTuple())
-    #  save(pname, p)
-    #  @info "Save sanity plot to $pname"
-    p
+    # plot  
+    fig = Figure()
+    ax = Axis(fig[1, 1], 
+        xlabel = "Rise time ($x_unit)", ylabel = "Noise ($yunit)",
+        limits = ((extrema(x)[1] - 0.2, extrema(x)[2] + 0.2), (nothing, nothing)),
+        title = get_plottitle(filekeys[1], det_ged, "Noise sweep") * @sprintf("\nft = %.2f %s, rt opt. = %.1f %s, noise min = %.2f %s", ustrip(def_ft), unit(def_ft), ustrip(report.rt_opt), unit(report.rt_opt), report.min_noise * y_scale, yunit)) 
+    lines!(ax, x_inter, y_inter, color = :deepskyblue2, linewidth = 3, linestyle = :solid, label = "Interpolation")
+    Makie.scatter!(ax, x, y,  color = :black, label = "Data")
+    axislegend()
+
+    plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :noise_sweep) * "/"
+    pname = plt_folder *  _get_pltfilename(asic, filekeys[1], channel, Symbol("noisesweep_$(filter_type)_$(waveform_type)_$yunit"))
+    save(pname, fig)
+    @info "Save plot to $pname"
+    fig 
 end
-
-
 
 

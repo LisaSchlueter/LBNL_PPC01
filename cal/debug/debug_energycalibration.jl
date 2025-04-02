@@ -25,7 +25,7 @@ include("$(@__DIR__)/$relPath/processing_funcs/process_energy_calibration.jl")
 reprocess = true 
 asic = LegendData(:ppc01)
 period = DataPeriod(3)
-run = DataRun(50)
+run = DataRun(44)
 channel = ChannelId(1)
 category = :cal 
 e_types = [:e_trap]#, :e_cusp]
@@ -36,8 +36,8 @@ ecal_config = dataprod_config(asic).energy(filekey).default
 
 # DEBUG START 
 data = asic
-source = :th228
-calib_type = :th228#:gamma
+source = :co60
+calib_type = :gamma
 gamma_lines =  ecal_config[Symbol("$(source)_lines")]
 left_window_sizes = ecal_config[Symbol("$(source)_left_window_sizes")]
 right_window_sizes = ecal_config[Symbol("$(source)_right_window_sizes")]
@@ -121,7 +121,7 @@ pp_notfit = [gamma_lines_dict[p] for p in gamma_names if !(p in gamma_names_cal_
 # pname_calib = plt_folder * _get_pltfilename(data, filekey, channel, Symbol("calibration_curve_$(e_type)"))
 fig_calib = Figure()
 # g = Makie.GridLayout(fig_calib[2,1])
-LegendMakie.lplot!(report_calib, xerrscaling=100, additional_pts=(μ = μ_notfit, peaks = pp_notfit), titlesize = 17, title = get_plottitle(filekey, det, "Calibration Curve"; additiional_type=string(e_type)), juleana_logo = false)
+LegendMakie.lplot!(report_calib, xerrscaling=100, additional_pts=(μ = μ_notfit, peaks = pp_notfit), titlesize = 17, title = get_plottitle(filekey, det, "Calibration Curve"; additional_type=string(e_type)), juleana_logo = false)
 replace_resplot(fig_calib, report_calib)
 # if res_max > 5.0
 #     Makie.ylims!(axs[2], -res_max*1.2, res_max*1.2 )
@@ -131,12 +131,12 @@ function replace_resplot(fig, report)
     # replace residual plot with percent plot . 
     # legs = fig.content[findall(map(x -> x isa Legend, fig.content))]
     axs =  fig.content[findall(map(x -> x isa Axis, fig.content))]
-    res_max = maximum(abs.(report.gof.residuals_norm))
     xvalues = mvalue.(report.x)
     yvalues = mvalue.(report.y)
     yfit_values = mvalue.(report.f_fit(xvalues))
     residuals = 100 * (yvalues .- yfit_values) ./ yfit_values
     res_max =  maximum(abs.(residuals))
+    res_max = res_max < 0.15 ? 0.15 : res_max
     x_nofit = mvalue.(μ_notfit)
     y_nofit = mvalue.(ustrip.(pp_notfit))
     residuals_nofit = 100 * (y_nofit .- mvalue.(report.f_fit(x_nofit))) ./ mvalue.(report.f_fit(x_nofit))
@@ -149,7 +149,9 @@ function replace_resplot(fig, report)
 
     Makie.hspan!(ax2, [-0.1], [0.1], color = :silver, alpha = 0.7)
     Makie.hlines!(ax2, [0], [1], color = :silver, linestyle = :solid, linewidth = 2)
-    Makie.scatter!(ax2, x_nofit, residuals_nofit, color = :silver, strokecolor = :black, strokewidth = 1)
+    if !isempty(x_nofit)
+        Makie.scatter!(ax2, x_nofit, residuals_nofit, color = :silver, strokecolor = :black, strokewidth = 1)
+    end 
     Makie.scatter!(ax2, xvalues, residuals, color = :black)#, markersize = markersize)
     fig
     Makie.linkxaxes!(axs[1], ax2)

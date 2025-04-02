@@ -13,23 +13,14 @@ using PropDicts
 using StatsBase, IntervalSets
 using Unitful
 using TypedTables
-using Plots, CairoMakie
+using Makie, LegendMakie, CairoMakie
 using Measures
 using Distributions
-
-# set data configuration (where to find data; and where to save results)
-if gethostname() == "Lisas-MacBook-Pro.local"
-    ENV["LEGEND_DATA_CONFIG"] = "/Users/lisa/Documents/Workspace/LEGEND/LBL_ASIC/ASIC_data/ppc01/config.json"
-else # on NERSC 
-    ENV["LEGEND_DATA_CONFIG"] = "/global/cfs/projectdirs/m2676/data/teststands/lbnl/ppc01/config.json"
-end 
 
 # load functions from hpge-ana
 relPath = relpath(split(@__DIR__, "hpge-ana")[1], @__DIR__) * "/hpge-ana/"
 include("$(@__DIR__)/$relPath/processing_funcs/process_decaytime.jl")
 include("$(@__DIR__)/$relPath/utils/utils_aux.jl")
-include("$(@__DIR__)/$relPath/utils/utils_plot.jl")
-Plots_theme()
 
 # setup 
 asic = LegendData(:ppc01)
@@ -43,7 +34,10 @@ det = _channel2detector(asic, channel)
 filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run])
 data = read_ldata(asic, DataTier(:raw), filekeys, channel)
 wvfs = data.waveform
-Plots.plot(wvfs[rand(1:length(wvfs))], title = "Example waveform", xlabel = "Time", ylabel = "Amplitude [V]", legend = false)
+fig = Figure()
+plot_idx = rand(1:length(wvfs))
+ax = Axis(fig[1,1], title = "Example waveform $(plot_idx)", xlabel = "Time (µs)", ylabel = "Amplitude (V)")
+lines!(ax, ustrip.(wvfs[plot_idx].time),wvfs[plot_idx].signal, label = "raw waveform"); fig
 if run == DataRun(4)
     bl_window = 0.0u"µs" .. 37.0u"µs"
     tail_window = 45.0u"µs" .. 199.0u"µs"
@@ -51,13 +45,17 @@ else
     bl_window = 0.0u"µs" .. 20.0u"µs"
     tail_window = 30.0u"µs" .. 130.0u"µs"
 end 
-Plots.vline!([leftendpoint(bl_window), rightendpoint(bl_window)], label = "baseline", color = :red)
-Plots.vline!([leftendpoint(tail_window), rightendpoint(tail_window)], label = "tail", color = :violet)
+vlines!(ax, ustrip.([leftendpoint(bl_window), rightendpoint(bl_window)]), label = "baseline", color = :red)
+vlines!(ax, ustrip.([leftendpoint(tail_window), rightendpoint(tail_window)]), label = "tail", color = :violet)
+axislegend(position = :rb)
+fig 
 
 # 2. get decay times for pole-zero correction: 
 decay_times = dsp_decay_times(wvfs, bl_window, tail_window)
 filter!(x -> 0u"µs" < x < 1000u"µs", decay_times)
-Plots.stephist(decay_times, bins = 100, xlabel = "Decay time", ylabel = "Counts", title = "Decay times of waveforms", label = false)
+fig = Figure()
+ax = Axis(fig[1,1], title = "Decay times", xlabel = "Decay time (µs)", ylabel = "Counts")
+hist!(ax, ustrip.(decay_times), bins = 100, label = false)
 decay_time_pz = nothing
 try 
     min_τ = 0.0u"µs"
@@ -96,11 +94,12 @@ wvfs = shift_waveform.(wvfs, -bl_stats.mean)# substract baseline from waveforms
 # pole-zero correction
 deconv_flt = InvCRFilter(decay_time_pz)
 wvfs_pz = deconv_flt.(wvfs)
-i = rand(1:length(wvfs))
-Plots.plot(wvfs[i], title = "Example waveform", xlabel = "Time (µs)", ylabel = "Amplitude (V)", label = "raw")
-Plots.plot!(wvfs_pz[i], label = "pz - corrected")
+fig = Figure()
+ax = Axis(fig[1,1], title = "Example waveform $(plot_idx)", xlabel = "Time (µs)", ylabel = "Amplitude (V)")
+lines!(ax, ustrip.(wvfs[plot_idx].time), wvfs[plot_idx].signal , label = "raw")
+lines!(ax, ustrip.(wvfs_pz[plot_idx].time), wvfs_pz[plot_idx].signal , label =  "pz - corrected")
+axislegend(position = :rb); fig
 
-# tail_stats = tailstats.(wvfs, leftendpoint(tail_window), rightendpoint(tail_window)) # tail analysis 
 # # get raw wvf maximum/minimum
 wvf_max = maximum.(wvfs.signal)
 wvf_min = minimum.(wvfs.signal)
@@ -148,18 +147,23 @@ gamma_names = [ecal_config[Symbol("$(source)_names")][1]]
 fit_funcs = [Symbol.(ecal_config[Symbol("$(source)_fit_func")])[1]]
 gamma_lines_dict = Dict(gamma_names .=> gamma_lines)
 e_uncal = dsp_par.e_trap
-p = Plots.stephist(e_uncal, bins = 200)
+fig = Figure()
+ax = Axis(fig[1,1], title = "Uncalibrated energy spectrum", xlabel = "Energy (ADC)", ylabel = "Counts")
+hist!(ax, e_uncal, bins = 200)
 if run < DataRun(3)
     q = 0.5
 else
     q = 0.25
 end
-vline!([quantile(e_uncal,q)])
+vlines!(ax, [quantile(e_uncal,q)])
+fig
 cal_simple = gamma_lines[1] / quantile(e_uncal,q)
 
 # roughly calibrated spectrum 
 e_cal = e_uncal .* cal_simple
-Plots.stephist(e_cal, xlabel = "Energy", bins = 0:10:3000)
+fig = Figure()
+ax = Axis(fig[1,1], title = "Simple calibrated energy spectrum", xlabel = "Energy (keV)", ylabel = "Counts")
+hist!(ax, ustrip.(e_cal), bins = 0:10:3000)
 if run < DataRun(4)
     emin = 800
     emax = 1400
@@ -169,9 +173,9 @@ else
     emax = 1300
     bins = 0:10:3000
 end
-Plots.vline!([emin])
-Plots.vline!([emax])
-
+vlines!(ax, [emin])
+vlines!(ax,[emax])
+fig 
 e_cal_cut = filter(x-> emin*u"keV" <= x < emax*u"keV", e_cal)
 result_fit = fit(Normal, ustrip.(e_cal_cut))
 fwhm = round(result_fit.σ * 2.355, digits = 1) *u"keV"
@@ -181,7 +185,6 @@ fwhm = round(result_fit.σ * 2.355, digits = 1) *u"keV"
 h = fit(Histogram, ustrip(e_cal), bins)
 ymax = ceil(maximum(h.weights)/10)*10*1.2
 
-Makie_theme(; fs = 18, xgridvisible = false, ygridvisible = false)
 fig = Figure(size = (600, 400))
 ax = Axis(fig[1, 1], 
         xticks = 0:500:maximum(bins),
@@ -189,7 +192,7 @@ ax = Axis(fig[1, 1],
         xlabel = "Energy (keV)",
         ylabel = "Counts",
         titlesize = 14)
-hist!(fig[1, 1], ustrip.(e_cal), bins = bins, color = :dodgerblue)
+hist!(fig[1, 1], ustrip.(e_cal), bins = bins)
 Makie.ylims!(ax, 0, ymax)
 Makie.text!(ustrip(µ), 0.9*ymax, text = "$(µ)\nFWHM = $(fwhm)"; align = (:center, :center), fontsize = 18)
 fig

@@ -9,7 +9,7 @@ using LegendDSP, RadiationDetectorDSP
 
 # inputs and setup 
 period = DataPeriod(1)
-run = DataRun(12)
+run = DataRun(35)
 channel = ChannelId(1) # germanium channel 
 category = DataCategory(:bch)
 asic = LegendData(:ppc01)
@@ -45,18 +45,20 @@ end
 
 # plot
 plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekey, :waveform)
-wvfs_idx = 1
-fig = Figure()
-ax = Axis(fig[1,1], title = "$category-$period-$run, rms = $(round(rms(result.wvfs[wvfs_idx].signal), digits = 1))", xlabel = "Time (µs)", ylabel = "Signal (ADC)")
-if haskey(result, :wvfs_ch1)
-    lines!(ax, ustrip.(result.wvfs[wvfs_idx].time), result.wvfs[wvfs_idx].signal , label = "diff.")
-    lines!(ax, ustrip.(result.wvfs_ch1[wvfs_idx].time), result.wvfs_ch1[wvfs_idx].signal , color = :darkorange, linewidth = 3, label = "ch1")
-    lines!(ax, ustrip.(result.wvfs_ch2[wvfs_idx].time), result.wvfs_ch2[wvfs_idx].signal , color = :darkred, linewidth = 3, label = "ch2")
-    axislegend(orientation = :horizontal, location = :lt)
-else
-    lines!(ax, ustrip.(result.wvfs[wvfs_idx].time), result.wvfs[wvfs_idx].signal)
-end
-fig
-pname = plt_folder * "/waveform_$(wvfs_idx).png"
-save(pname, fig)
+wvfs_idx = 2
+begin 
+    fig = Figure()
+    ax = Axis(fig[1,1], title = "$category-$period-$run, rms = $(round(rms(result.wvfs[wvfs_idx].signal), digits = 1))", xlabel = "Time (µs)", ylabel = "Signal (ADC)")
+    if haskey(result, :wvfs_ch1)
+        lines!(ax, ustrip.(result.wvfs[wvfs_idx].time), result.wvfs[wvfs_idx].signal , label = "diff.")
+        lines!(ax, ustrip.(result.wvfs_ch1[wvfs_idx].time), result.wvfs_ch1[wvfs_idx].signal , linewidth = 3, label = "ch1")
+        lines!(ax, ustrip.(result.wvfs_ch2[wvfs_idx].time), result.wvfs_ch2[wvfs_idx].signal ,  linewidth = 3, label = "ch2")
+        axislegend(orientation = :horizontal, location = :lt)
+    else
+        lines!(ax, ustrip.(result.wvfs[wvfs_idx].time), result.wvfs[wvfs_idx].signal)
+    end
+    pname = plt_folder * "/waveform_$(wvfs_idx).png"
+    save(pname, fig)
+    fig
+end 
 
