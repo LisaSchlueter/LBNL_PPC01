@@ -43,7 +43,7 @@ dsp_config = DSPConfig(dataprod_config(asic).dsp(filekeys[1]).default)
 # DEBUG
 data = asic
 filekeys = search_disk(FileKey, data.tier[DataTier(:raw), category , period, run])
-
+peakfinder_gamma = 1
 if Symbol(ecal_config.source) == :co60
     gamma_lines =  ecal_config.co60_lines
     gamma_names =  ecal_config.co60_names
@@ -56,13 +56,20 @@ elseif Symbol(ecal_config.source) == :th228
     right_window_sizes = 1.5 * ecal_config.th228_right_window_sizes[end] 
 end
 
-
+if peakfinder_gamma !== NaN
+    gamma_lines =  gamma_lines[peakfinder_gamma]
+    gamma_names =  gamma_names[peakfinder_gamma]
+    left_window_sizes = left_window_sizes[peakfinder_gamma]
+    right_window_sizes = right_window_sizes[peakfinder_gamma]
+    @info "use only peakfinder_gamma $(peakfinder_gamma) for peak search"
+end
 # for f in eachindex(filekeys) 
 # filekey = filekeys[f]
 # peak_file = peak_files[f]
 data_ch = read_ldata(data, DataTier(:raw), filekeys, channel)
 wvfs = data_ch.waveform
 e_uncal = filter(x -> x >= qc_config.e_trap.min , data_ch.daqenergy)
+
 if isempty(e_uncal)
     @warn "No energy values >= $(qc_config.e_trap.min) found for $filekey - skip"
     # continue
@@ -120,20 +127,20 @@ end
 
 
 
-try
-    h_peaksearch = fit(Histogram, e_uncal, bin_min:bin_width:peak_max) # histogram for peak search
-    _, peakpos[f] = RadiationSpectra.peakfinder(h_peaksearch, σ= ecal_config.peakfinder_σ, backgroundRemove=true, threshold = ecal_config.peakfinder_threshold)
-catch e 
-    @warn "peakfinder failed for $filekey - use larger window. err $e"
-    h_peaksearch = fit(Histogram, e_uncal, bin_min:bin_width:(peak_max*1.5)) # histogram for peak search
-    _, peakpos[f] = RadiationSpectra.peakfinder(h_peaksearch, σ= ecal_config.peakfinder_σ, backgroundRemove=true, threshold = ecal_config.peakfinder_threshold)
-end 
-if length(peakpos[f]) !== length(gamma_lines)
-    error("Number of peaks found $(length(peakpos[f])); expected gamma lines $(length(gamma_lines)) \n you could try to modify peakfinder_threshold and/or peakfinder_σ (file $f)")
-else 
-    @info "Found $(length(peakpos[f])) peaks for $filekey"
-end 
-cal_simple = mean(gamma_lines./sort(peakpos[f]))
+# try
+#     h_peaksearch = fit(Histogram, e_uncal, bin_min:bin_width:peak_max) # histogram for peak search
+#     _, peakpos[f] = RadiationSpectra.peakfinder(h_peaksearch, σ= ecal_config.peakfinder_σ, backgroundRemove=true, threshold = ecal_config.peakfinder_threshold)
+# catch e 
+#     @warn "peakfinder failed for $filekey - use larger window. err $e"
+#     h_peaksearch = fit(Histogram, e_uncal, bin_min:bin_width:(peak_max*1.5)) # histogram for peak search
+#     _, peakpos[f] = RadiationSpectra.peakfinder(h_peaksearch, σ= ecal_config.peakfinder_σ, backgroundRemove=true, threshold = ecal_config.peakfinder_threshold)
+# end 
+# if length(peakpos[f]) !== length(gamma_lines)
+#     error("Number of peaks found $(length(peakpos[f])); expected gamma lines $(length(gamma_lines)) \n you could try to modify peakfinder_threshold and/or peakfinder_σ (file $f)")
+# else 
+#     @info "Found $(length(peakpos[f])) peaks for $filekey"
+# end 
+cal_simple = mean(gamma_lines./sort(peakpos))
 e_simplecal = e_uncal .* cal_simple
 i = 1
 peakIdx = findall((gamma_lines[i] - left_window_sizes[i]) .<= e_simplecal .< (gamma_lines[i] + right_window_sizes[i]))

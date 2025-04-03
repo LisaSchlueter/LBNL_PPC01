@@ -115,8 +115,8 @@ t50 = get_threshold(wvfs, wvf_max .* 0.5)
 t90 = get_threshold(wvfs, wvf_max .* 0.9)
 
 # trap-filter: signal estimator for precise energy reconstruction
-trap_rt = 3.0u"µs"
-trap_ft = 1.0u"µs"
+trap_rt = 2.0u"µs"
+trap_ft = 0.5u"µs"
 uflt_trap_rtft = TrapezoidalChargeFilter(trap_rt, trap_ft)
 signal_estimator = SignalEstimator(PolynomialDNI(3, 100u"ns"))
 e_trap = signal_estimator.(uflt_trap_rtft.(wvfs), t50 .+ (trap_rt + trap_ft/2))
@@ -172,15 +172,15 @@ if run < DataRun(4)
 else
     emin = 1070
     emax = 1300
-    bins = 0:10:3000
+    bins = 400:20:2500
 end
 vlines!(ax, [emin])
 vlines!(ax,[emax])
 fig 
 e_cal_cut = filter(x-> emin*u"keV" <= x < emax*u"keV", e_cal)
 result_fit = fit(Normal, ustrip.(e_cal_cut))
-fwhm = round(result_fit.σ * 2.355, digits = 1) *u"keV"
-µ = round(mvalue(result_fit.μ) , digits = 1) * u"keV"
+fwhm = round(Int, result_fit.σ * 2.355) *u"keV"
+µ = round(1e-3*ustrip(gamma_lines[1]), digits = 2) * u"MeV" #round(Int, mvalue(result_fit.μ)) * u"keV"
 
 
 h = fit(Histogram, ustrip(e_cal), bins)
@@ -189,15 +189,17 @@ ymax = ceil(maximum(h.weights)/10)*10*1.2
 fig = Figure(size = (600, 400))
 ax = Axis(fig[1, 1], 
         xticks = 0:500:maximum(bins),
-        title = "VERY simple calibrated energy specrum (e_trap): $period - $run - $det", 
+        title = "Calibrated energy specrum (e_trap): $period - $run - $det", 
         xlabel = "Energy (keV)",
         ylabel = "Counts",
         titlesize = 14)
 hist!(fig[1, 1], ustrip.(e_cal), bins = bins)
-Makie.ylims!(ax, 0, ymax)
-Makie.text!(ustrip(µ), 0.9*ymax, text = "$(µ)\nFWHM = $(fwhm)"; align = (:center, :center), fontsize = 18)
-fig
 
+Makie.ylims!(ax, 0, ymax)
+Makie.text!(ustrip(µ)*1e3, 0.9*ymax, text = "Co60 ($(µ))\nFWHM = $(fwhm)"; align = (:center, :center), fontsize = 18)
+fig
+lines!(ax, emin:1:emax,  step(bins) * length(e_cal_cut) *pdf(result_fit, emin:1:emax), color = :red2, label = "fit", linewidth = 3)
+fig
 plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :spectrum_approx) * "/"
 if !isdir(plt_folder)
     mkdir(plt_folder)

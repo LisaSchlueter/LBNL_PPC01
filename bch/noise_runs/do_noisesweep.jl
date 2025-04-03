@@ -33,10 +33,10 @@ category = DataCategory(:bch)
 det_ged = _channel2detector(asic, channel)
 
 # load configs and modify if needed 
+filter_type = :trap
 filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run])#[1:4]
 dsp_config = DSPConfig(dataprod_config(asic).dsp(filekeys[1]).default)
 rt = (0.5:0.5:25.0).*u"µs"
-#  _, def_ft = get_fltpars(PropDict(), filter_type, dsp_config)
 def_ft = 0.1u"µs"
 pd_default = dataprod_config(asic).dsp(filekeys[1]).default
 dsp_config_mod = DSPConfig(merge(pd_default, PropDict( 

@@ -56,4 +56,8 @@ Makie.scatter!(ax, runs_cold2, mvalue.(τ_c2), markersize = 10, label = "03/20: 
 
 axislegend(merge = true, position = :lb)
 fig 
-save("$(@__DIR__)/plots/decaytime_vs_run.png", fig)
+plt_dir = "$(@__DIR__)/plots/"
+if !isdir(plt_dir)
+    mkpath(plt_dir)
+end
+save("$(plt_dir)/decaytime_vs_run.png", fig)

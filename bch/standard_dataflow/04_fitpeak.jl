@@ -18,10 +18,9 @@ period = DataPeriod(1)
 channel = ChannelId(1)
 category = DataCategory(:bch)
 run = DataRun(7)
-for r = 13:32
-    filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run])
+filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run])
 
-    # read dsp pars and fit peaks 
-    dsp_pars = read_ldata(asic, :jldsp, category, period, run, channel);
-    process_peakfits(asic, period, run, category, channel; reprocess = true, juleana_logo = false, rel_cut_fit = 0.1)
-end 
+# read dsp pars and fit peaks 
+dsp_pars = read_ldata(asic, :jldsp, category, period, run, channel);
+process_peakfits(asic, period, run, category, channel; reprocess = true, juleana_logo = false, rel_cut_fit = 0.1)
+
