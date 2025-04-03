@@ -40,16 +40,10 @@ ecal_config = dataprod_config(asic).energy(filekeys[1]).default
 # ecal_config.co60_lines
 dsp_config = DSPConfig(dataprod_config(asic).dsp(filekeys[1]).default)
 
+# run processor 
+plts = process_peak_split(asic, period, run, category, channel, ecal_config, dsp_config, qc_config ; reprocess = reprocess, peakfinder_gamma = 1)   
 
-# AUTOMATIC PEAK SPLIITING DID NOT WORK CORRECTLY. 2nd peak is strongly suppressed. 
-# thats why we do it the manual way, with tuned parameters using only Co60a peak 
-mode = :auto 
+# plots 
+display(plts[2])
 
-if mode == :auto
-    # run processor 
-    plts = process_peak_split(asic, period, run, category, channel, ecal_config, dsp_config, qc_config ; reprocess = reprocess)   
-
-    # plots 
-    display(plts[2])
-end 
 

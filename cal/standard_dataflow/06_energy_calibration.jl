@@ -43,11 +43,9 @@ filekey = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run]
 ecal_config = dataprod_config(asic).energy(filekey).default
 
 # do calibration 
-process_energy_calibration(asic, period, run, category, channel, ecal_config; reprocess = reprocess, e_types = e_types)
+process_energy_calibration(asic, period, run, category, channel, ecal_config; reprocess = reprocess, e_types = e_types, plot_residuals = :percent)
 
-# read calibration parameters
-# asic.par[category].rpars.ecal[period, run, channel].e_trap
-
+# read calibration parameters (sanity check)
 gammas_sort = [ :Tl208FEP,  :Tl208SEP, :Bi212FEP, :Tl208DEP, :Tl208b, :Bi212a, :Tl208a]
 for k in gammas_sort
     e = round(Int, ustrip(mvalue(asic.par[category].rpars.ecal[period, run, channel].e_trap.fit[k].µ)))

@@ -59,6 +59,7 @@ begin
     end
     pname = plt_folder * "/waveform_$(wvfs_idx).png"
     save(pname, fig)
+    @info "Saved waveform plot to $pname"
     fig
 end 
 
