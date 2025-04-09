@@ -26,8 +26,8 @@ include("$(@__DIR__)/$relPath/utils/utils_physics.jl")
 
 # init data management 
 asic = LegendData(:ppc01)
-period = DataPeriod(1)
-run = DataRun(46)
+period = DataPeriod(2)
+run = DataRun(3)
 channel = ChannelId(1)
 category = DataCategory(:bch)
 det_ged = _channel2detector(asic, channel)
@@ -36,7 +36,9 @@ det_ged = _channel2detector(asic, channel)
 filter_type = :trap
 filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run])#[1:4]
 dsp_config = DSPConfig(dataprod_config(asic).dsp(filekeys[1]).default)
-rt = (5.0:1.0:30.5).*u"µs"
+# rt = (4.0:1.0:40.5).*u"µs"
+rt = (1.0:0.5:12.5).*u"µs"
+# rt = (0.5:1.0:50.5).*u"µs"
 def_ft = 0.1u"µs"
 pd_default = dataprod_config(asic).dsp(filekeys[1]).default
 dsp_config_mod = DSPConfig(merge(pd_default, PropDict( 
@@ -47,27 +49,32 @@ dsp_config_mod = DSPConfig(merge(pd_default, PropDict(
 
 # settings 
 filter_type = :trap
-# for waveform_type in [:waveform, :waveform_ch1, :waveform_ch2]
 waveform_type = :waveform
 diff_output = true 
-n_evts = 356#500#100#5000
 reprocess = true
 
 # daq settings
-set = (
-    csa_gain = if parse(Int, "$run"[2:end]) <= 35
+if parse(Int, string(period)[2:end]) == 1
+    gain = if parse(Int, "$run"[2:end]) <= 35
         1.0
     else
         11.9
-    end,
-    csa_F = 500*1e-15,
-    dynamicrange_V = 2.0,
-    bits = if diff_output == true
-        15 # differential output
-    else
-        14 # single ended output 
     end
-)
+    C_f = 500.0*1e-15
+    C_inj = 500.0*1e-15
+    n_evts = 100
+elseif parse(Int, string(period)[2:end]) == 2
+    if parse(Int, "$run"[2:end]) <= 2
+        gain =  48.0
+        n_evts = 100
+    else
+        gain = 100.0
+        n_evts = 10 
+    end
+    C_inj = 3000.0*1e-15
+    C_f = 500.0*1e-15
+end
+set = (gain = gain, C_f = C_f, C_inj = C_inj)
 
 # load waveforms and do noise sweep 
 begin 
@@ -104,20 +111,15 @@ f_interp = let enc = result_rt.noise, rt = ustrip.(result_rt.rt)
 end
 result_rt[:f_interp] = f_interp
 
-function plot_noise_sweep(report; yunit = :ADC)
-    ylabel_extra = "" 
-    y_scale = if yunit == :ADC 
-        1.0
-    elseif yunit == :keV
-        pulser_ADC_to_keV(1.0, set.csa_F; bits = set.bits, dynamicrange_V = set.dynamicrange_V, gain = set.csa_gain) 
-    elseif yunit == :e
-        pulser_ADC_to_electrons(1.0, set.csa_F; bits = set.bits, dynamicrange_V = set.dynamicrange_V, gain = set.csa_gain )
-    elseif yunit == :µV
-        ylabel_extra = " / gain" ;
-        1e6 .* DAQ_ADC_to_V(1.0, set.dynamicrange_V, set.bits) ./ set.csa_gain
-    else
-        error("Invalid yunit")
-    end 
+fig = plot_noise_sweep_osci(result_rt;  yunit = :e, gain = set.gain, C_f = set.C_f, ) # V only for osci. 
+fig = plot_noise_sweep_osci(result_rt;  yunit = :µV, gain = set.gain, C_f = set.C_f, ) # V only for osci.
+function plot_noise_sweep_osci(report; yunit = :µV, gain = set.gain, C_f = set.C_f, C_inj = set.C_inj)
+    gain = gain * C_inj / C_f
+    y_scale = if yunit == :µV
+        1e6 / gain
+    elseif yunit ==:e
+        V_to_electrons(1.0, C_inj; gain = gain) 
+    end
     x = report.rt
     x_unit = unit(x[1])
     x = ustrip.(x)
@@ -128,21 +130,16 @@ function plot_noise_sweep(report; yunit = :ADC)
     # plot  
     fig = Figure()
     ax = Axis(fig[1, 1], 
-        xlabel = "Rise time ($x_unit)", ylabel = "Noise$ylabel_extra ($yunit)",
+        xlabel = "Rise time ($x_unit)", ylabel = "Noise / gain ($yunit)",
         limits = ((extrema(x)[1] - 0.2, extrema(x)[2] + 0.2), (nothing, nothing)),
-        title = get_plottitle(filekeys[1], det_ged, "Noise sweep") * @sprintf("\nft = %.2f %s, rt opt. = %.1f %s, noise min = %.2f %s", ustrip(def_ft), unit(def_ft), ustrip(report.rt_opt), unit(report.rt_opt), report.min_noise * y_scale, yunit)) 
+        title = get_plottitle(filekeys[1], det_ged, "Noise sweep (gain $(round(gain, digits = 1)))") * @sprintf("\nft = %.2f %s, rt opt. = %.1f %s, noise min = %.2f %s", ustrip(def_ft), unit(def_ft), ustrip(report.rt_opt), unit(report.rt_opt), report.min_noise * y_scale, yunit)) 
     lines!(ax, x_inter, y_inter, color = :deepskyblue2, linewidth = 3, linestyle = :solid, label = "Interpolation")
     Makie.scatter!(ax, x, y,  color = :black, label = "Data")
-    axislegend()
+    axislegend(position = :rt)
 
     plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :noise_sweep) * "/"
-    pname = plt_folder *  _get_pltfilename(asic, filekeys[1], channel, Symbol("noisesweep_$(filter_type)_$(waveform_type)_$yunit"))
+    pname = plt_folder *  _get_pltfilename(asic, filekeys[1], channel, Symbol("noisesweep_$(filter_type)_$(waveform_type)_osci"))
     save(pname, fig)
     @info "Save plot to $pname"
     fig 
 end
-
-fig = plot_noise_sweep(result_rt; yunit = :ADC)
-fig = plot_noise_sweep(result_rt; yunit = :keV)
-fig = plot_noise_sweep(result_rt; yunit = :e)
-fig = plot_noise_sweep(result_rt; yunit = :µV)

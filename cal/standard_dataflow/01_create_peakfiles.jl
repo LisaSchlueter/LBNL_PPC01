@@ -35,7 +35,7 @@ include("$(@__DIR__)/$relPath/utils/utils_aux.jl")
 reprocess = true
 asic = LegendData(:ppc01)
 period = DataPeriod(3)
-run = DataRun(50)
+run = DataRun(1)
 channel = ChannelId(1)
 category = DataCategory(:cal)
 

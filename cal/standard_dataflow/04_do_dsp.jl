@@ -11,7 +11,7 @@ include("$(@__DIR__)/$relPath/processing_funcs/process_dsp.jl")
 # inputs 
 asic = LegendData(:ppc01)
 period = DataPeriod(3)
-run = DataRun(50)
+run = DataRun(1)
 channel = ChannelId(1)
 category = DataCategory(:cal)
 
