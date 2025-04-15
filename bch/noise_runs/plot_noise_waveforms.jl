@@ -9,7 +9,7 @@ using LegendDSP, RadiationDetectorDSP
 
 # inputs and setup 
 period = DataPeriod(1)
-run = DataRun(37)
+run = DataRun(49)
 channel = ChannelId(1) # germanium channel 
 category = DataCategory(:bch)
 asic = LegendData(:ppc01)
@@ -45,7 +45,7 @@ end
 
 # plot
 plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekey, :waveform)
-wvfs_idx = 3
+wvfs_idx = 1
 begin 
     fig = Figure()
     ax = Axis(fig[1,1], title = "$category-$period-$run, rms = $(round(rms(result.wvfs[wvfs_idx].signal), digits = 1)) ADC", xlabel = "Time (µs)", ylabel = "Signal (ADC)")

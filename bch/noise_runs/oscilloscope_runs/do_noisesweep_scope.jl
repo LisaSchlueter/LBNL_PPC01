@@ -114,7 +114,7 @@ result_rt[:f_interp] = f_interp
 fig = plot_noise_sweep_osci(result_rt;  yunit = :e, gain = set.gain, C_f = set.C_f, ) # V only for osci. 
 fig = plot_noise_sweep_osci(result_rt;  yunit = :µV, gain = set.gain, C_f = set.C_f, ) # V only for osci.
 function plot_noise_sweep_osci(report; yunit = :µV, gain = set.gain, C_f = set.C_f, C_inj = set.C_inj)
-    gain = gain * C_inj / C_f
+    gain = gain # * C_inj / C_f
     y_scale = if yunit == :µV
         1e6 / gain
     elseif yunit ==:e
