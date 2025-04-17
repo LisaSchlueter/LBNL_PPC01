@@ -35,7 +35,7 @@ plot_τ    = process_decaytime(asic, period, run, category, channel, pz_config, 
 τ_pz = asic.par[category].rpars.pz[period, run, channel].τ
 
 # 3. filteroptimization based on peakfiles: output: rpars.fltopt and plots
-fwhm_rel_cut_fit = 0.1 # default value, we should add to dsp config
+fwhm_rel_cut_fit = 0.5
 process_filteropt(asic, period, run, category, channel, dsp_config, mvalue(τ_pz), Symbol(pz_config.peak); reprocess = reprocess, rt_opt_mode = :bl_noise, filter_types = filter_types, fwhm_rel_cut_fit = fwhm_rel_cut_fit)
 pars_filter = asic.par[category].rpars.fltopt[period, run, channel]
 
@@ -51,7 +51,8 @@ dsp_pars.qc
 
 # 6. energy calibration. output: rpars.ecal and plots
 process_energy_calibration(asic, period, run, category, channel, ecal_config; reprocess = reprocess, e_types = e_types, plot_residuals = :abs)
+asic.par[category].rpars.ecal[period, run, channel]
 
-# 7. apply energy calibration to all waveforms in dsp tier. output: hit files
-process_hit(asic, period, run, category, channel; reprocess = reprocess, e_types = e_types)
+# # 7. apply energy calibration to all waveforms in dsp tier. output: hit files
+# process_hit(asic, period, run, category, channel; reprocess = reprocess, e_types = e_types)
 
