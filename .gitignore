@@ -40,6 +40,9 @@ deps/src/
 docs/build/
 docs/site/
 
+# debug folder
+debug/
+
 # OS generated files
 **/*.DS_Store
 
