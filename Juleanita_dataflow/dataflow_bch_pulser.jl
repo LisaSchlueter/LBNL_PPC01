@@ -38,4 +38,7 @@ dsp_pars = read_ldata(asic, :jldsp, category, period, run, channel);
 # 4. fit peaks 
 process_peakfits(asic, period, run, category, channel; reprocess = true, juleana_logo = false, rel_cut_fit = 0.1)
 
-# 5. linearity plot 
+# 5. linearity fit and plot
+result, report = process_pulser_linearity(asic, period, collect(1:10), category, channel)
+result
+lplot(report; plot_gof = false)
