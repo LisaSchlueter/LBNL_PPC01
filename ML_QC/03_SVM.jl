@@ -94,7 +94,6 @@ X_test = hcat(wvfs_dwt.signal...)[:, ntrain+1:end]
 model = svmtrain(X_train, labels_train; kernel=LIBSVM.Kernel.RadialBasis, cost = svm_cost, gamma = svm_gamma)
 model_predict = Base.Fix1(svmpredict, model)
 
-
 # Predict labels for the training data
 pred_labels_train = svmpredict(model, X_train)
 accuracy_train = sum(pred_labels_train[1] .== labels_train) / length(labels_train)

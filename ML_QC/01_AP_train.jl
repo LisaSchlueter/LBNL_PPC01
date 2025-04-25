@@ -15,12 +15,13 @@ using Printf
 using StatsBase 
 using Juleanita
 using Unitful
+using Random
 include("$(@__DIR__)/utils_ml.jl")
 
 # data settings and config 
 asic = LegendData(:ppc01)
-period = DataPeriod(1)
-run = DataRun(1)
+period = DataPeriod(3)
+run = DataRun(52)
 channel = ChannelId(1)
 category = DataCategory(:cal)
 filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run])
@@ -35,10 +36,22 @@ tol = 1.0e-6
 # plot settings 
 plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :ml_qualitycuts) * "/"
 
+pars_ml = try 
+    @info "Load ML for $category-$period-$run-$channel"
+    asic.par[category].rpars.qc_ml[period,run, channel]
+catch 
+    PropDict()
+end 
+
 # load waveforms 
-data_raw = TTable(read_ldata(asic, DataTier(:raw), filekeys, channel))
-wvfs_train_raw = data_raw.waveform[1:1000]
-wvfs_train_eventnumber = data_raw.eventnumber[1:1000]
+wvf_max = Int(1e6)
+nsamples = 1000
+rng = MersenneTwister(1234)
+_idx = Int.(rand(rng, 1:1e5, nsamples))
+
+data_raw = TTable(read_ldata(asic, DataTier(:raw), filekeys, channel))[_idx]
+wvfs_train_raw = data_raw.waveform
+wvfs_train_eventnumber = data_raw.eventnumber
 
 # baseline-shift and normalize waveforms 
 wvfs_train = normalize_waveforms(wvfs_train_raw, dsp_config.bl_window)
@@ -72,7 +85,7 @@ result_ap, report_ap = trainAP(wvfs_train;
 result_ap = merge(result_ap, (waveforms = merge(result_ap.waveforms, (train_eventnumber = wvfs_train_eventnumber,)),))
 
 if result_ap.ap.ncluster > 110
-    @warn "Affinity propagation clustering resulted in $(result_ap.ap.ncluster) clusters. This is more than 100 clusters. Modify preference_quantile and damp!"
+    @error "Affinity propagation clustering resulted in $(result_ap.ap.ncluster) clusters. This is more than 100 clusters. Modify preference_quantile and damp!"
 end
 
 # plot all cluster centers: exemplars with ap labels 
@@ -88,6 +101,6 @@ save(_pname, fig_ex_ap)
 fig_ex_ap
 
 # save intermediate results from AP 
-pars_ml = PropDict(:ap => result_ap)
+pars_ml[:ap] = result_ap
 writelprops(asic.par[category].rpars.qc_ml[period], run, PropDict("$channel" => pars_ml))
 @info "Save ML-AP results to pars (intermediate,  labelling not done yet)"
