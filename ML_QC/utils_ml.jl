@@ -1,3 +1,14 @@
+using LegendDataManagement
+using RadiationDetectorSignals, RadiationDetectorDSP
+using Unitful
+using IntervalSets
+using PropDicts
+using StatsBase
+using Makie, CairoMakie, LegendMakie
+"""
+    normalize_waveforms(wvfs::ArrayOfRDWaveforms, bl_window::ClosedInterval{<:Quantity})
+Normalize the input waveforms by baseline-shifting and normalizing to the abs. maximum amplitude.
+"""
 function normalize_waveforms(wvfs::ArrayOfRDWaveforms, bl_window::ClosedInterval{<:Quantity})
     bl_stats = signalstats.(wvfs, leftendpoint(bl_window), rightendpoint(bl_window))
     wvfs_shift = shift_waveform.(wvfs, -bl_stats.mean)
@@ -5,6 +16,10 @@ function normalize_waveforms(wvfs::ArrayOfRDWaveforms, bl_window::ClosedInterval
     return multiply_waveform.(wvfs_shift, 1 ./ wvf_absmax)
 end
 
+"""
+    trainAP(wvfs_train::ArrayOfRDWaveforms; preference_quantile::T = 0.5, damp::T = 0.1, maxiter::Int = 200, tol::T = 1.0e-6) where T<:Real
+Train the AffinityPropagation model on the input waveforms.
+"""
 function trainAP(wvfs_train::ArrayOfRDWaveforms; preference_quantile::T = 0.5, damp::T = 0.1, maxiter::Int = 200, tol::T = 1.0e-6) where T<:Real
     # transform waveforms to a matrix of size (n_waveforms, n_samples) for ML clustering
     wvfs_matrix = transpose(hcat(wvfs_train.signal...))
@@ -57,7 +72,11 @@ function trainAP(wvfs_train::ArrayOfRDWaveforms; preference_quantile::T = 0.5, d
     return result_ap, report_ap 
 end 
 
+"""
+    plot_APexemplars(centers::ArrayOfRDWaveforms, labels::Vector, colors::Vector)
+Plot the cluster centers (exemplars) of the AffinityPropagation clustering.
 
+"""
 function plot_APexemplars(centers, labels::Vector, colors::Vector)
     ncluster = length(centers)
     ncol = round(Int, sqrt(ncluster))
@@ -78,3 +97,67 @@ function plot_APexemplars(centers, labels::Vector, colors::Vector)
     colgap!(fig.layout, 5)
     return fig
 end
+
+function ml_filename(data::LegendData, category::DataCategory, period::DataPeriod, run::DataRun )
+    ml_folder = data.tier[DataTier(:jlqcml), category , period, run] * "/"
+    if !ispath(ml_folder)
+        mkpath(ml_folder)
+    end
+    filekey = search_disk(FileKey, data.tier[DataTier(:raw), category , period, run])[1]
+    ml_folder * string(filekey) * "-tier_jlqcml.jld2"
+end
+
+"""
+    dwt(waveforms::ArrayOfRDWaveforms; nlevels::Int = 2)
+Discrete wavelet transform (DWT) of the input waveforms using Haar filter
+"""
+function dwt(waveforms::ArrayOfRDWaveforms; nlevels::Int = 2)
+    # create Haar filter 
+    haar_flt = HaarAveragingFilter(2)  
+
+    # Apply Haar filter nlevels times
+    wvfs_flt = copy(waveforms)
+    for _ in 1:nlevels
+        wvfs_flt = haar_flt.(wvfs_flt)
+    end
+
+    # normalize with max of absolute extrema values
+    norm_fact = map(x -> max(abs(first(x)), abs(last(x))), extrema.(wvfs_flt.signal))
+    replace!(norm_fact, 0.0 => one(first(norm_fact)))
+    wvfs_flt = multiply_waveform.(wvfs_flt, 1 ./ norm_fact)
+end 
+
+"""
+    plot_SVM_QCeff(label_pred::Vector, pars_mlap::PropDict; dataset = "", accuracy = NaN)
+Plot the distribution of qc-labels based on the trained full AP-SVM model
+If accuracy is provided, it will be shown in the plot legend 
+"""
+function plot_SVM_QCeff(label_pred::Vector, pars_mlap::PropDict; dataset = "", accuracy = NaN, plot_name = NaN)
+    _qc_cat =  parse.(Int, string.(keys(countmap(label_pred))))
+    qc_cat = [pars_mlap.legend.qc_labels[_qc_cat[i]] for i in eachindex(_qc_cat)]
+    x  = collect(1:length(qc_cat))
+    y  = parse.(Int, string.(values(countmap(label_pred)))) ./ length(label_pred)
+    label_plot = if !isfinite(accuracy)
+       "$(length(label_pred)) waveforms ($dataset)"
+    else 
+       "$(length(label_pred)) waveforms ($dataset) \naccuracy: $(round(accuracy, digits = 3))"
+    end
+
+    fig = Figure()
+    ax = Axis(fig[1, 1], 
+        limits = ((nothing, nothing), (0, 1)),
+        xlabel = "QC category", 
+        ylabel = "Fraction of training waveforms", 
+        title = title = Juleanita.get_plottitle(filekeys[1], _channel2detector(asic, channel), "AP-SVM Quality cuts"),
+        titlesize = 16)
+    ax.xticks = x
+    ax.xtickformat = x -> qc_cat
+    barplot!(ax, x, y, bar_labels = :y, label = label_plot)
+    axislegend()
+    if isa(plot_name, String)
+        save(plot_name , fig)
+        @info "Save SVM efficiency plot to $(plot_name)"
+    end 
+    fig 
+end 
+
