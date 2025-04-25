@@ -48,3 +48,4 @@ debug/
 
 # local files and folders 
 local*
+*.out
