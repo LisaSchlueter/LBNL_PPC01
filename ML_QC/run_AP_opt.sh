@@ -9,7 +9,7 @@
 #SBATCH --mail-user=lschlueter@lbl.gov
 #SBATCH --mail-type=ALL
 #SBATCH -A m2676
-#SBATCH -t 0:30:0
+#SBATCH -t 3:00:0
 
 # OpenMP settings:
 export OMP_NUM_THREADS=15
@@ -19,5 +19,4 @@ export OMP_PROC_BIND=spread
 #run the application: 
 export JULIA_NUM_THREADS=15
 export LEGEND_DATA_CONFIG=/global/cfs/projectdirs/m2676/data/teststands/lbnl/ppc01/config.json
-alias julia='/global/common/software/nersc/n9/julia/1.10.4/bin/julia'
-srun -n 1 -c 256 --cpu_bind=cores julia --project=/global/homes/l/lschl/.julia/environments/asic-dev/ ./AP_hyperpars_opt.jl
+srun -n 1 -c 256 --cpu_bind=cores /global/common/software/nersc/n9/julia/1.10.4/bin/julia --project=/global/homes/l/lschl/.julia/environments/asic-dev/ ./AP_hyperpars_opt.jl

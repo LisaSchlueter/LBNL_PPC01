@@ -28,14 +28,6 @@ filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run
 dsp_config = DSPConfig(dataprod_config(asic).dsp(filekeys[1]).default)
 
 # ml settings: 
-preference_quantile = 0.3
-damp = 0.5
-maxiter = 200
-tol = 1.0e-6
-
-# plot settings 
-plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :ml_qualitycuts) * "/"
-
 pars_ml = try 
     @info "Load ML for $category-$period-$run-$channel"
     asic.par[category].rpars.qc_ml[period,run, channel]
@@ -43,11 +35,19 @@ catch
     PropDict()
 end 
 
+preference_quantile = 0.01#3
+damp = 0.99
+maxiter = 500
+tol = 1.0e-6
+
+# plot settings 
+plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :ml_qualitycuts) * "/"
+
 # load waveforms 
-wvf_max = Int(1e6)
-nsamples = 1000
+wvf_max = Int(1e5)
+nsamples = 10000
 rng = MersenneTwister(1234)
-_idx = Int.(rand(rng, 1:1e5, nsamples))
+_idx = randperm(rng, wvf_max)[1:nsamples]
 
 data_raw = TTable(read_ldata(asic, DataTier(:raw), filekeys, channel))[_idx]
 wvfs_train_raw = data_raw.waveform

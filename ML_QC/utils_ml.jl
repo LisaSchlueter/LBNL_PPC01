@@ -48,7 +48,7 @@ function trainAP(wvfs_train::ArrayOfRDWaveforms; preference_quantile::T = 0.5, d
     end        
 
     # evaluate the model 
-    _report = report(_machine)
+    _report = MLJ.report(_machine)
 
     # check convergence 
     if !_report.converged

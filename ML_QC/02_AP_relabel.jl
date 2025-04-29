@@ -19,8 +19,8 @@ include("$(@__DIR__)/utils_ml.jl")
 
 # data settings  
 asic = LegendData(:ppc01)
-period = DataPeriod(1)
-run = DataRun(1)
+period = DataPeriod(3)
+run = DataRun(52)
 channel = ChannelId(1)
 category = DataCategory(:cal)
 
@@ -30,19 +30,21 @@ plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :ml_
 
 # load AP training results (step 01)
 ml_file = joinpath(data_path(asic.par[category].rpars.qc_ml[period]), "$run.json" )
-result_ap  = if isfile(ml_file) 
+pars_ml  = if isfile(ml_file) 
     @info "Load AP training results for $category-$period-$run-$channel"
-    asic.par[category].rpars.qc_ml[period,run, channel].ap
+    asic.par[category].rpars.qc_ml[period,run, channel]
 else 
     error("AP training needs to happen before relabelling! Cannot proceed")
 end 
-if haskey(result_ap.exemplars, :qc_labels) 
-     @info "Relabelling already done. If you want to redo relabelling, run following script"
+result_ap = pars_ml.ap
+if haskey(result_ap, :qc_labels) 
+    @info "Relabelling already done. If you want to redo relabelling, run following script"
 end 
 
 # load waveforms used for AP training
 eventnumber = read_ldata((:eventnumber), asic, DataTier(:raw), filekeys, channel)
-data_raw = TTable(read_ldata(asic, DataTier(:raw), filekeys, channel))[findall(map(x -> x in pars_ml.ap.waveforms.train_eventnumber, eventnumber))]
+findall(map(x -> x in result_ap.waveforms.train_eventnumber, eventnumber))
+data_raw = TTable(read_ldata(asic, DataTier(:raw), filekeys, channel))[findall(map(x -> x in result_ap.waveforms.train_eventnumber, eventnumber))]
 wvfs_train_raw = data_raw.waveform
 @assert data_raw.eventnumber == result_ap.waveforms.train_eventnumber
 
@@ -57,18 +59,18 @@ fig_ex_ap
 @info "Renaming clusters into LEGEND qc-labels. THIS HAS TO BE DONE MANUALLY!!!! "
 @info " here is the legend for thr QC labels:"
 qc_labels = dataprod_config(asic).qc_ml(filekeys[1]).qc_labels
-relabel_nt = (normal = [6, 27, 35, 36, 50],
+relabel_nt = (normal = [1, 2],
     neg_go = [],
     up_slo = [],
     down_slo = [],
     spike = [],
     x_talk = [],
     slo_ri = [],
-    early_tr = [14, 18, 23, 34],
+    early_tr = [],
     late_tr = [],
     sat = [],
-    soft_pi = [2, 5, 8, 13, 17, 22, 24, 28, 32, 44, 48, 56],
-    hard_pi = [1, 3, 4, 7, 9, 10, 11, 12, 15, 16, 19, 20, 21, 25,26,29, 30, 31, 33, 37, 38, 39, 40, 41, 42, 43, 45, 46, 47, 49, 51, 52, 53, 54, 55, 57],
+    soft_pi = [],
+    hard_pi = [],
     bump = [],
     noise = []
 )
@@ -141,7 +143,7 @@ result_ap = PropDict(:ap => result_ap.ap,
                     :waveforms => merge(result_ap.waveforms, PropDict(:qc_labels => waveform_qc_labels)), 
                     :exemplars => merge(result_ap.exemplars, PropDict(:qc_labels => exemplar_qc_labels)),
                     :legend => PropDict(:qc_labels => qc_labels, :relabel_nt => relabel_nt))
-pars_ml = PropDict(:ap => result_ap)
+pars_ml[:ap] = result_ap
 writelprops(asic.par[category].rpars.qc_ml[period], run, PropDict("$channel" => pars_ml))
 @info "Save ML-AP relabel results to pars"
 
