@@ -43,7 +43,6 @@ end
 
 # load waveforms used for AP training
 eventnumber = read_ldata((:eventnumber), asic, DataTier(:raw), filekeys, channel)
-findall(map(x -> x in result_ap.waveforms.train_eventnumber, eventnumber))
 data_raw = TTable(read_ldata(asic, DataTier(:raw), filekeys, channel))[findall(map(x -> x in result_ap.waveforms.train_eventnumber, eventnumber))]
 wvfs_train_raw = data_raw.waveform
 @assert data_raw.eventnumber == result_ap.waveforms.train_eventnumber
@@ -54,12 +53,13 @@ plot_col = get(ColorSchemes.tol_muted, range(0.0, 1.0, length=result_ap.ap.nclus
 fig_ex_ap = plot_APexemplars(centers, string.(Int.(result_ap.exemplars.labels)), plot_col)
 fig_ex_ap
 
-# rename clusters into LEGEND qc-labels. 1 QC-label can consit of more than one AP cluster
+# THIS STEP HAS TO BE DONE MANUALLY!!!!!
+# Rename exemplars/clusters AP-labels ---> LEGEND QC-labels. 1 QC-label can be assigned to more than one AP-label
 # re-label the all waveforms by hand. several cluster can belong to the the same QC label. 
 @info "Renaming clusters into LEGEND qc-labels. THIS HAS TO BE DONE MANUALLY!!!! "
 @info " here is the legend for thr QC labels:"
 qc_labels = dataprod_config(asic).qc_ml(filekeys[1]).qc_labels
-relabel_nt = (normal = [1, 2],
+relabel_nt = (normal = [4,8,9,10,11,12,14, 18, 21, 22, 24, 25, 26, 27, 29, 30,34,35,40,41,42, 44, 46,48, 50,51,52,53, 54, 55, 56,62, 64,66,67,71,72,73,74,75,76,77,78,85, 87, 90, 92, 94,95,97,98,99,102, 103, 104],
     neg_go = [],
     up_slo = [],
     down_slo = [],
@@ -69,10 +69,10 @@ relabel_nt = (normal = [1, 2],
     early_tr = [],
     late_tr = [],
     sat = [],
-    soft_pi = [],
-    hard_pi = [],
-    bump = [],
-    noise = []
+    soft_pi = [16,20,63],
+    hard_pi = [1,5 , 6, 13, 15,17,19, 23, 28, 31, 32,33,36,37,38,43,45,49,57,58, 59,60, 65, 68, 69,70,79,80,81,82,83, 86,88,89, 93,96,100,101],
+    bump = [2, 3, 7, 39, 47, 61, 84, 91], # different than in Legend: here bump in rising edge
+    noise = [],
 )
 
 # sanity check for relabeling 

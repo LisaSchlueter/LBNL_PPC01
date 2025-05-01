@@ -145,7 +145,7 @@ function plot_SVM_QCeff(label_pred::Vector, pars_mlap::PropDict; dataset = "", a
 
     fig = Figure()
     ax = Axis(fig[1, 1], 
-        limits = ((nothing, nothing), (0, 1)),
+        limits = ((nothing, nothing), (0, 1.05)),
         xlabel = "QC category", 
         ylabel = "Fraction of training waveforms", 
         title = title = Juleanita.get_plottitle(filekeys[1], _channel2detector(asic, channel), "AP-SVM Quality cuts"),

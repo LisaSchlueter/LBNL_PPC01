@@ -19,8 +19,8 @@ include("$(@__DIR__)/utils_ml.jl")
 
 # data settings
 asic = LegendData(:ppc01)
-period = DataPeriod(1)
-run = DataRun(1)
+period = DataPeriod(3)
+run = DataRun(52)
 channel = ChannelId(1)
 category = DataCategory(:cal)
 filekeys = search_disk(FileKey, asic.tier[DataTier(:raw), category , period, run])
@@ -33,14 +33,16 @@ svm_cost = 1.0
 svm_gamma = 0.5
 
 # 
+plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :ml_qualitycuts) * "/"
+
 # load AffinityPropagation results (if not available, give error message)
 pars_ml = try 
     @info "Load ML for $category-$period-$run-$channel"
     asic.par[category].rpars.qc_ml[period,run, channel]
 catch 
-    error("Run ML-AP clustering + relabelling for $category-$period-$run-$channel do not exist. Run 01_AP_train.jl and 02_AP_relabel.jl first")
+    error("Run ML-AP clustering + relabelling for $category-$period-$run-$channel do not exist. Run 01_AP_hperpars_opt.jl, 02_AP_train.jl and 03_AP_relabel.jl first")
 end 
-if !haskey(result_ap.exemplars, :qc_labels)
+if !haskey(pars_ml.ap.exemplars, :qc_labels)
     error("Run ML-AP relabelling for $category-$period-$run-$channel does not exist. Run  02_AP_relabel.jl first")
 end 
 
@@ -78,7 +80,7 @@ let fig = Figure()
     lines!(ax, ustrip.(wvfs_train[i].time), wvfs_train[i].signal, label = "Original ($(round(Int, length(wvfs_train[i].time)/1e3))k samples)")
     lines!(ax, ustrip.(wvfs_dwt[i].time), wvfs_dwt[i].signal, label = "DWT level $(dwt_haar_levels) ($(round(Int, length(wvfs_dwt[i].time)/1e3))k samples)", linestyle = :dash)
     axislegend(position = :lt)
-    save("$(@__DIR__)/plots/waveforms/Waveform_DWT_$i.png", fig)
+    save("$(plt_folder)/waveforms/Waveform_DWT_$i.png", fig)
 	fig
 end
 # sanity check: plot 5 random waveforms
@@ -117,7 +119,7 @@ pars_ml = merge(pars_ml, PropDict(:svm => merge(result_svm, PropDict(:model => (
 save(ml_file, Dict("$channel" => pars_ml))
 
 # sanity plots: distribution of predicted labels for training and test data 
-_plot_path = joinpath(plt_folder, "efficiency/")
+_plot_path = joinpath(plt_folder, "SVM/")
 if !isdir(_plot_path)
     mkpath(_plot_path)
 end

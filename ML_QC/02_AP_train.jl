@@ -35,27 +35,41 @@ catch
     PropDict()
 end 
 
-preference_quantile = 0.01#3
-damp = 0.99
-maxiter = 500
-tol = 1.0e-6
+if haskey(pars_ml, :ap_opt)
+    @info "use optimized AP hyperparameters"
+    preference_quantile = pars_ml.ap_opt.opt.preference_quantile
+    damp = pars_ml.ap_opt.opt.damp
+    maxiter = pars_ml.ap_opt.maxiter
+    tol = pars_ml.ap_opt.tol
 
-# plot settings 
-plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :ml_qualitycuts) * "/"
+    # use same random samples as for hyperparameter optimization
+    _eventnumber = read_ldata((:eventnumber), asic, DataTier(:raw), filekeys, channel)
+    _idx = findall(map(x -> x in pars_ml.ap_opt.wvfs_train_eventnumber, _eventnumber))
+else
+    @info "hyperparameter not optimized. Use best-guess AP hyperparameters:"
+    preference_quantile = 0.01#3
+    damp = 0.99
+    maxiter = 500
+    tol = 1.0e-6
+
+    # draw random samples for the training set
+    wvf_max = Int(1e5)
+    nsamples = 10000
+    rng = MersenneTwister(1234)
+    _idx = randperm(rng, wvf_max)[1:nsamples]
+end
 
 # load waveforms 
-wvf_max = Int(1e5)
-nsamples = 10000
-rng = MersenneTwister(1234)
-_idx = randperm(rng, wvf_max)[1:nsamples]
-
 data_raw = TTable(read_ldata(asic, DataTier(:raw), filekeys, channel))[_idx]
 wvfs_train_raw = data_raw.waveform
 wvfs_train_eventnumber = data_raw.eventnumber
 
 # baseline-shift and normalize waveforms 
 wvfs_train = normalize_waveforms(wvfs_train_raw, dsp_config.bl_window)
+
 # sanity plot 5 random waveforms 
+# plot settings 
+plt_folder = LegendDataManagement.LDMUtils.get_pltfolder(asic, filekeys[1], :ml_qualitycuts) * "/"
 for _ in 1:5
     let i = rand(1:length(wvfs_train)) 
         fig = Figure()
@@ -84,7 +98,7 @@ result_ap, report_ap = trainAP(wvfs_train;
 # add waveform eventnumbers to result; 
 result_ap = merge(result_ap, (waveforms = merge(result_ap.waveforms, (train_eventnumber = wvfs_train_eventnumber,)),))
 
-if result_ap.ap.ncluster > 110
+if result_ap.ap.ncluster > 120
     @error "Affinity propagation clustering resulted in $(result_ap.ap.ncluster) clusters. This is more than 100 clusters. Modify preference_quantile and damp!"
 end
 
