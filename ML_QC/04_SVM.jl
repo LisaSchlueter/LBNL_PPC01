@@ -123,7 +123,7 @@ _plot_path = joinpath(plt_folder, "SVM/")
 if !isdir(_plot_path)
     mkpath(_plot_path)
 end
-pname = (dataset) -> "$(_plot_path)SVM_test_cost$(pars_ml.svm.svm.cost)_gamma$(pars_ml.svm.svm.gamma).png"    
+pname = (dataset) -> "$(_plot_path)SVM_$(dataset)_cost$(pars_ml.svm.svm.cost)_gamma$(pars_ml.svm.svm.gamma).png"    
 plot_SVM_QCeff(pred_labels_train[1], pars_ml.ap; dataset = "train", accuracy = accuracy_train, plot_name = pname("train"))
 plot_SVM_QCeff(pred_labels_test[1], pars_ml.ap; dataset = "test",  accuracy = accuracy_test, plot_name = pname("test"))
 
