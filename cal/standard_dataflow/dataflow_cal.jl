@@ -35,7 +35,8 @@ plot_τ    = process_decaytime(asic, period, run, category, channel, pz_config, 
 τ_pz = asic.par[category].rpars.pz[period, run, channel].τ
 
 # 3. filteroptimization based on peakfiles: output: rpars.fltopt and plots
-process_filteropt(asic, period, run, category, channel, dsp_config, mvalue(τ_pz), Symbol(pz_config.peak); reprocess = reprocess, rt_opt_mode = :bl_noise, filter_types = filter_types)
+fwhm_rel_cut_fit = 0.1 # default value, we should add to dsp config
+process_filteropt(asic, period, run, category, channel, dsp_config, mvalue(τ_pz), Symbol(pz_config.peak); reprocess = reprocess, rt_opt_mode = :bl_noise, filter_types = filter_types, fwhm_rel_cut_fit = fwhm_rel_cut_fit)
 pars_filter = asic.par[category].rpars.fltopt[period, run, channel]
 
 # 4. run dsp on all waveforms in raw tier. output: dsp files
@@ -45,6 +46,7 @@ dsp_pars = read_ldata(asic, :jldsp, category, period, run, channel);
 # 5. apply pre-defined quality cuts based on dsp parameters. output: rpars.qc and qc flag in dsp tier
 process_qualitycuts(asic, period, run, category, channel; reprocess = true, qc_config = qc_config);
 qc_pars = asic.par[category].rpars.qc[period, run, channel]
+dsp_pars = read_ldata(asic, :jldsp, category, period, run, channel);
 dsp_pars.qc
 
 # 6. energy calibration. output: rpars.ecal and plots
